@@ -1,0 +1,19 @@
+repositories:
+  # Core repositories
+  src/glim:
+    type: git
+    url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/glim.git
+    version: main
+
+  # Internal tool repositories
+  src/glim_ros2:
+    type: git
+    url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/glim_ros2.git
+    version: main
+
+  # External repositories
+  src/glim_ext:
+    type: git
+    url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/glim_ext.git
+    version: main
+
