@@ -26,11 +26,17 @@ log_error () {
 log_milla "Try to Connect Milla-GitLab Server" 0
 git clone https://gitlab.infra.isfm.vpn:4000/milla/ad_ros2/ad_ros2 
 if [ $? != 0 ]; then
-    log_error "/!\\ Falied to Connect milla-GitLab server maybe check the VPN ou le dossier 'ad_ros2' existe déjà?" 0
+    log_error "/!\\ Falied to Connect milla-GitLab server maybe check the VPN ou le Réseau?" 0
     clean_exit 1
 else
     rm -rf ./ad_ros2
 fi
+
+log_milla "____ _     ___ __  __
+ / ___| |   |_ _|  \/  |
+| |  _| |    | || |\/| |
+| |_| | |___ | || |  | |
+ \____|_____|___|_|  |_| milla\n" 1
 
 # Installer dependencies obligatoire
 sudo apt install libomp-dev libboost-all-dev libmetis-dev \
@@ -43,9 +49,9 @@ else
     log_milla "Apt Dependencie install succesfully" 0
 fi
 
-pip3 install scipy numpy  >/dev/null 2>&1
+pip3 install scipy numpy --default-timeout=1000 >/dev/null 2>&1
 status1=$?
-pip3 install open3d  >/dev/null 2>&1
+pip3 install open3d --default-timeout=3600 >/dev/null 2>&1
 status2=$?
 if [ $status1 != 0 ] || [ $status2 != 0 ] ; then
     log_error "Aborting pip3 dependencies obligatoire" 0
@@ -57,9 +63,9 @@ fi
 
 
 # Clone les workspace obligatoire
-git clone https://gitlab.infra.isfm.vpn:4000/milla/mapping/gtsam.git ../  >/dev/null 2>&1
-git clone https://gitlab.infra.isfm.vpn:4000/milla/mapping/iridescence.git --recursive ../  >/dev/null 2>&1
-git clone https://gitlab.infra.isfm.vpn:4000/milla/mapping/gtsam_points.git ../  >/dev/null 2>&1
+git clone https://gitlab.infra.isfm.vpn:4000/milla/mapping/gtsam.git ../gtsam  >/dev/null 2>&1
+git clone https://gitlab.infra.isfm.vpn:4000/milla/mapping/iridescence.git --recursive ../iridescence  >/dev/null 2>&1
+git clone https://gitlab.infra.isfm.vpn:4000/milla/mapping/gtsam_points.git ../gtsam_points  >/dev/null 2>&1
 cd ../
 
 # build les workspaces
@@ -117,11 +123,12 @@ sudo ldconfig  >/dev/null 2>&1
 
 # build ros2 workspace
 cd glim_ws
-vcs import . < glim.repos
+vcs import . < glim.repos >/dev/null 2>&1
+source /opt/ros/humble/setup.bash
 colcon build --cmake-args \
   -DBUILD_WITH_CUDA=ON \
   -DBUILD_WITH_VIEWER=ON \
-  -DBUILD_WITH_MARCH_NATIVE=OFF
+  -DBUILD_WITH_MARCH_NATIVE=OFF >/dev/null 2>&1
 
 if [ $? != 0 ]; then
     log_error "Aborting failed install Glim_ws" 0
