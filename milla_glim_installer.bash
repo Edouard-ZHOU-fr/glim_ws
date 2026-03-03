@@ -39,7 +39,7 @@ log_milla "____ _     ___ __  __
  \____|_____|___|_|  |_| milla\n" 1
 
 # Installer dependencies obligatoire
-sudo apt install libomp-dev libboost-all-dev libmetis-dev \
+sudo apt install -y libomp-dev libboost-all-dev libmetis-dev \
                  libfmt-dev libspdlog-dev \
                  libglm-dev libglfw3-dev libpng-dev libjpeg-dev  >/dev/null 2>&1
 if [ $? != 0 ]; then
@@ -49,9 +49,9 @@ else
     log_milla "Apt Dependencie install succesfully" 0
 fi
 
-pip3 install scipy numpy --default-timeout=1000 >/dev/null 2>&1
+pip3 install -y scipy numpy --default-timeout=1000 >/dev/null 2>&1
 status1=$?
-pip3 install open3d --default-timeout=3600 >/dev/null 2>&1
+pip3 install -y open3d --default-timeout=3600 >/dev/null 2>&1
 status2=$?
 if [ $status1 != 0 ] || [ $status2 != 0 ] ; then
     log_error "Aborting pip3 dependencies obligatoire" 0
