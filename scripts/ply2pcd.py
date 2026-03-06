@@ -6,10 +6,9 @@ from scipy.spatial.transform import Rotation as R
 ################################
 
 
-inputPLYName = "mgrs_final.ply"
-# T_world_utm 的参数: x, y, z, qx, qy, qz, qw    
-se3_mgrs_world = np.array([41598.625653,3577.682233,218.441666,
-                           0.000000,0.000000,-0.853967,0.520328])
+inputPLYName = "longviller.ply"
+# T_mgrs_world x, y, z, qx, qy, qz, qw    
+se3_mgrs_world = np.array([27309.745095,81371.585083,125.842703,0.000000,0.000000,0.937159,-0.348903])
 useFiltrage = True
 isShow = False
 
@@ -25,8 +24,7 @@ def print_reussi(reussi):
     reussi = str(reussi)
     print("\033[1;32;47m"+reussi+"\033[0m")
 
-def transform_mgrs_world(input_pcd_path,se3_mgrs_world):
-    output_pcd_path = "global_map_mgrs_absolute.pcd"
+def transform_mgrs_world(input_pcd,se3_mgrs_world,outputPCDName):
 
     T_mgrs_world = np.eye(4)
     T_mgrs_world[:3, :3] = R.from_quat(se3_mgrs_world[3:]).as_matrix()
@@ -36,15 +34,14 @@ def transform_mgrs_world(input_pcd_path,se3_mgrs_world):
     print("Transformation Matrix (T_mgrs_world):")
     print(T_mgrs_world)
 
-    pcd = o3d.io.read_point_cloud(input_pcd_path)
-    if pcd.is_empty():
+    # pcd = o3d.io.read_point_cloud(input_pcd_path)
+    if input_pcd.is_empty():
         print("Error: Point cloud is empty or path is wrong.")
         return
 
-    pcd.transform(T_mgrs_world)
-    o3d.io.write_point_cloud(output_pcd_path, pcd, write_ascii=False)
+    input_pcd.transform(T_mgrs_world)
+    o3d.io.write_point_cloud(outputPCDName, input_pcd, write_ascii=False)
     
-    # 验证第一个点
     print("Verification - First point in UTM:")
     print(np.asarray(pcd.points)[0])
 
@@ -54,25 +51,24 @@ pcd = o3d.io.read_point_cloud(inputPLYName)
 print_c("####### Transformation en cours  #############")
 
 if useFiltrage: 
-# 2. 统计学去噪
-# nb_neighbors: 指定邻居点的数量（通常设为 20）
-# std_ratio: 标准差乘数，数值越小，滤除的点越多（建议 1.0 - 2.0）
+# nb_neighbors:  20）
+# std_ratio:  1.0 - 2.0）
     cl, ind = pcd.remove_statistical_outlier(nb_neighbors=20, std_ratio=3)
-    # 提取清洗后的点云
+
     pcd_cleaned = pcd.select_by_index(ind)
 else:
     pcd_cleaned = pcd
 
 if isShow :
     outlier_cloud = pcd.select_by_index(ind, invert=True)
-    outlier_cloud.paint_uniform_color([1, 0, 0]) # 红色标记噪点
-    pcd_cleaned.paint_uniform_color([0.8, 0.8, 0.8]) # 灰色标记有效点
+    outlier_cloud.paint_uniform_color([1, 0, 0])
+    pcd_cleaned.paint_uniform_color([0.8, 0.8, 0.8]) 
     o3d.visualization.draw_geometries([pcd_cleaned, outlier_cloud])
 
 
 outputPCDName = inputPLYName.replace('.ply', '.pcd')
-o3d.io.write_point_cloud(outputPCDName, pcd_cleaned)
-transform_mgrs_world(outputPCDName,se3_mgrs_world)
+# o3d.io.write_point_cloud(outputPCDName, pcd_cleaned)
+transform_mgrs_world(pcd_cleaned,se3_mgrs_world,outputPCDName)
 
 end = time.time()
 print_reussi(" Temps d'éxecusion: "+str(end-start)+"   (s)\n")
