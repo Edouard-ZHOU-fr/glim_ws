@@ -1,7 +1,0 @@
-<launch>
-  <node pkg="glim_ros" exec="glim_rosnode" name="milla_glim_processor" output="screen">
-  </node>
-
-  <node pkg="convert_gnss" exec="converter" name="localization_conventor" output="log">
-  </node>
-</launch>

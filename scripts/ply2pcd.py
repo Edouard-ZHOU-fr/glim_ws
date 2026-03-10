@@ -6,9 +6,9 @@ from scipy.spatial.transform import Rotation as R
 ################################
 
 
-inputPLYName = "longviller.ply"
+inputPLYName = "mob0.ply"
 # T_mgrs_world x, y, z, qx, qy, qz, qw    
-se3_mgrs_world = np.array([27309.745095,81371.585083,125.842703,0.000000,0.000000,0.937159,-0.348903])
+se3_mgrs_world = np.array([30785.204685,83444.300612,169.133631,0.000000,0.000000,0.974724,-0.223410])
 useFiltrage = True
 isShow = False
 
@@ -43,7 +43,7 @@ def transform_mgrs_world(input_pcd,se3_mgrs_world,outputPCDName):
     o3d.io.write_point_cloud(outputPCDName, input_pcd, write_ascii=False)
     
     print("Verification - First point in UTM:")
-    print(np.asarray(pcd.points)[0])
+    print(np.asarray(input_pcd.points)[0])
 
 start = time.time()
 pcd = o3d.io.read_point_cloud(inputPLYName)
