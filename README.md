@@ -105,7 +105,7 @@ Vous pouvez conduire en mode manuel dans les zones que vous souhaitez cartograph
     * Donc vous pouvez lancer la ligne commande suivant pour ouvrir le offline viwer et puis générer le nuage de point .ply
     ```bash
     source install/setup.bash
-    ros2 run glim_ros offline_viwer
+    ros2 run glim_ros offline_viewer
     ```
     * Ensuite, Cliquez le ```File```, ```OPen New Map```  pour ouvrir votre nuage de points enregisté, puis choisir dans ```File```,```Save```, puis ```Export Points``` pour générer la nuage de point au format de ply.
     > :warning: Attention cette étape peut générer que le format de .ply pensez de bien saisir de sousfix .ply pour le nom de nuage de point.
