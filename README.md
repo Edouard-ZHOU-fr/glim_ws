@@ -94,6 +94,11 @@ Cela ouvrira également une fenêtre Iridescence dédiée, permettant de visuali
 ### 5. Roulage en mauelle
 Vous pouvez conduire en mode manuel dans les zones que vous souhaitez cartographier. Théoriquement, GLIM peut fonctionner en temps réel jusqu'à 80 km/h. Cependant, pour des vitesses supérieures à 40 km/h, il est fortement conseillé d'enregistrer un rosbag pour un traitement ultérieur (poste-taitement)
 
+Pour enregistré les données :
+```bash
+ros2 bag record /tf /tf_static /imu /localization/kinematic_state /perception/concatenated/pointcloud -b500000000--storage mcap
+```
+
 ### 6. Enregistement et géneration de nuage de points(.pcd)
 
 * _Enregistement sous la format de glim_
