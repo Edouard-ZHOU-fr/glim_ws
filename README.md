@@ -96,7 +96,7 @@ Vous pouvez conduire en mode manuel dans les zones que vous souhaitez cartograph
 
 Pour enregistré les données :
 ```bash
-ros2 bag record /tf /tf_static /imu /localization/kinematic_state /perception/concatenated/pointcloud -b 2000000000 --storage mcap
+ros2 bag record /tf /tf_static /imu /localization/kinematic_state /perception/concatenated/pointcloud -b 2000000000 --storage mcap --max-cache-size 1000000000
 ```
 
 ### 6. Enregistement et géneration de nuage de points(.pcd)
