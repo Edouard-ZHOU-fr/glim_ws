@@ -126,6 +126,8 @@ cd glim_ws
 vcs import . < glim.repos >/dev/null 2>&1
 source /opt/ros/humble/setup.bash
 colcon build --cmake-args \
+  -DGTSAM_DIR=/usr/local/lib/cmake/GTSAM \
+  -DCMAKE_PREFIX_PATH="/usr/local;/opt/ros/humble" \
   -DBUILD_WITH_CUDA=ON \
   -DBUILD_WITH_VIEWER=ON \
   -DBUILD_WITH_MARCH_NATIVE=OFF >/dev/null 2>&1
