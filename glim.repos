@@ -3,22 +3,22 @@ repositories:
   src/glim:
     type: git
     url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/glim.git
-    version: main
+    version: 1.0.0
 
   # Internal tool repositories
   src/glim_ros2:
     type: git
     url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/glim_ros2.git
-    version: main
+    version: 1.0.0
 
   # External repositories
   src/glim_ext:
     type: git
     url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/glim_ext.git
-    version: main
+    version: 1.0.0
 
   src/convert_gnss:
     type: git
     url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/convert_gnss.git
-    version: main
+    version: 1.0.0
 
