@@ -27,7 +27,7 @@ log_milla "Try to Connect Milla-GitLab Server" 0
 git clone https://gitlab.infra.isfm.vpn:4000/milla/ad_ros2/ad_ros2 
 if [ $? != 0 ]; then
     log_error "/!\\ Falied to Connect milla-GitLab server maybe check the VPN ou le Réseau?" 0
-    clean_exit 1
+    exit 1
 else
     rm -rf ./ad_ros2
 fi

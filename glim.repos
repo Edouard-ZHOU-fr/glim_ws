@@ -20,5 +20,5 @@ repositories:
   src/convert_gnss:
     type: git
     url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/convert_gnss.git
-    version: 1.0.0
+    version: main
 
