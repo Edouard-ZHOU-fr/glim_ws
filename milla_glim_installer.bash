@@ -105,7 +105,9 @@ log_warn "Ex: RTX 4090 / 4080 / 4070 / 4060 / 4050"
 cmake .. \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_WITH_CUDA=ON \
-  -DCMAKE_CUDA_ARCHITECTURES=89  >/dev/null 2>&1
+  -DCMAKE_CUDA_ARCHITECTURES=89  \
+  -DGTSAM_DIR=/usr/local/lib/cmake/GTSAM  \
+  -DGTSAM_UNSTABLE_DIR=/usr/local/lib/cmake/GTSAM_UNSTABLE >/dev/null 2>&1
 make -j$(nproc)  >/dev/null 2>&1
 sudo make install  >/dev/null 2>&1
 if [ $? != 0 ]; then
