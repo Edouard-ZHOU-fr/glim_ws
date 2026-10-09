@@ -1,5 +1,86 @@
 # Changelog
 
+## [1.3.0] - 2026-10-09
+
+### Versions des dépôts (`glim.repos`)
+
+Les librairies `gtsam`, `iridescence` et `gtsam_points` sont maintenant déclarées dans `glim.repos` et figées sur un tag, comme les packages ROS. Elles sont toujours clonées dans `../`, à côté de `glim_ws`.
+
+| Dépôt | 1.2.0 | 1.3.0 |
+|---|---|---|
+| `src/glim` | `1.0.0` (`409eeec`) | `1.0.0` (inchangé) |
+| `src/glim_ros2` | `1.0.0` (`19e2c56`) | `1.0.0` (inchangé) |
+| `src/glim_ext` | `1.0.0` (`943b3c9`) | `1.3.1` (`672c63e`) |
+| `src/convert_gnss` | `1.0.0` (`2b5cadf`) | `1.0.1` (`b7f1992`) |
+| `../gtsam` | `main`, cloné par l'installeur | `1.0.0` (`41c8e54`) |
+| `../iridescence` | `master`, cloné par l'installeur | `1.0.0` (`de083e2`) |
+| `../gtsam_points` | `main`, cloné par l'installeur | `1.0.0` (`17e948d`) |
+
+Les tags des trois librairies pointent sur les mêmes commits que les branches clonées jusqu'ici : inutile de les recompiler si elles sont déjà installées à ces commits. Le tag `1.0.0` d'iridescence est un tag Milla, à ne pas confondre avec le tag amont `v1.0.1` (sur une autre branche) ; la librairie installée reste `libiridescence.so.1.0.1`.
+
+### Ajouté
+
+- **glim_ext : prior de roulis/tangage (roll/pitch) GNSS**
+  - Contraint le roll et le pitch des submaps avec l'orientation des messages GNSS, contre la dérive d'inclinaison de la carte (haute vitesse, trajets longs, pentes, peu de fermetures de boucle).
+  - Le yaw et le roll/pitch forment un seul prior de rotation (`PriorFactor<Pose3>`, mesure `Rz(yaw) * Ry(pitch) * Rx(roll)`). Chaque angle est activé et filtré indépendamment : le roll/pitch peut être contraint même si le cap est rejeté. L'information est exprimée sur les angles d'Euler (`J^-T * diag(1/sigma^2) * J^-1`), pour qu'un écart de yaw ne crée pas d'erreur de roll en pente.
+  - Nouveaux paramètres : `enable_roll_pitch_prior`, `roll_pitch_prior_sigma_deg`, `roll_pitch_min_sigma_deg`, `roll_pitch_max_sigma_deg` (variances `covariance[21]` et `covariance[28]`).
+  - Log à l'initialisation : `GNSS - estimated roll=... deg (std=... deg), pitch=... deg (std=... deg) over N submaps`. Une moyenne de plus de quelques dixièmes de degré indique une rotation entre l'IMU et `base_link` (montage) : augmentez `roll_pitch_min_sigma_deg` ou désactivez ce prior.
+  - Documentation et conseils de réglage dans `src/glim_ext/README.md`.
+- **glim_ext : affichage des contraintes GNSS dans le viewer** (paramètre `isShow`)
+  - Prior de position : ligne submap → position GNSS et croix (cyan : normal, orange : faible, rouge : abandonné).
+  - Prior de cap : ligne magenta selon le cap GNSS. Prior roll/pitch : ligne jaune selon l'axe z du prior.
+  - Rien n'est dessiné si le viewer n'est pas lancé.
+- **glim_ext : paramètre `weak_inf_scale`** : information (1/sigma²) du prior de translation quand le GNSS est faible ("Gnss faible"). Elle était figée à `[1e3, 1e3, 3e3]`, qui reste la valeur par défaut.
+
+### Modifié
+
+- **glim_ext** (avec `dynamic_scale: true`)
+  - Seuil "Gnss faible" abaissé : information <= `5e2` en x/y ou <= `1e3` en z (avant : `1e3` et `2e3`), soit un sigma GNSS >= 5,1 cm (xy) ou >= 5,7 cm (z) au lieu de 3,6 cm et 4 cm. Ce seuil est codé en dur : il change aussi avec un ancien fichier de config.
+  - `T_mgrs_world` n'est estimé qu'avec les submaps dont la position GNSS est fiable (information > `1e3` en x/y et > `2e3` en z, soit un sigma < 3,6 cm et < 4 cm). Une position biaisée (ex. EKF pas encore convergé) décalait tous les priors suivants. Logs : `T_mgrs_world not initialized yet: only N / M submaps have a usable GNSS position` en attendant, puis `T_mgrs_world=... (estimated from N / M submaps)`.
+  - `config_gnss_global.json` : `yaw_max_sigma_deg` passe de `5.0` à `3.0` ; ajout de `weak_inf_scale: [3e2, 3e2, 5e2]` (sigma 5,8 cm en xy et 4,5 cm en z, au lieu de 3,2 cm et 1,8 cm), du prior roll/pitch (`enable_roll_pitch_prior: true`, sigmas `1.0` / `0.5` / `5.0`) et de `isShow: true`.
+  - Le module `gnss_global` dépend maintenant d'Iridescence (`find_package(Iridescence REQUIRED)`).
+- **convert_gnss** : `package.xml` déclare ses dépendances d'exécution (`rclpy`, `nav_msgs`, `geometry_msgs`, `tf2_msgs`).
+- **glim_ws**
+  - `glim.repos` : ajout de `../gtsam`, `../iridescence` et `../gtsam_points` (voir le tableau ci-dessus).
+  - `milla_glim_installer.bash` : un seul `vcs import . < glim.repos` clone les librairies et les packages ROS avant la compilation. Il remplace les trois `git clone` et le second `vcs import`. Les submodules d'iridescence sont récupérés par `git submodule update --init --recursive`. Le script s'arrête si le clonage échoue (avant, l'échec était silencieux).
+  - `.gitignore` : ignore aussi `pointcloud*/`, `*.pcd`, `*.txt`, `*.csv` et `*.ply`.
+
+### Corrigé
+
+- **glim_ext**
+  - Les poids du prior de translation (`dynamic_scale`) utilisent la covariance GNSS interpolée au timestamp de la submap, et non plus celle du dernier message reçu (limitation connue de la 1.2.0).
+  - Le prior de translation pouvait être ajouté plusieurs fois à la même submap, quand les nouvelles submaps ne pouvaient pas encore être associées au GNSS (ex. coupure GNSS). Il est maintenant ajouté une seule fois par submap.
+- **glim_ws** : `milla_glim_installer.bash` passe `GTSAM_DIR` et `GTSAM_UNSTABLE_DIR` (`/usr/local/lib/cmake/...`) à la configuration de `gtsam_points`, pour qu'il trouve le GTSAM installé.
+
+### Limitations connues
+
+- Priors GNSS (glim_ext) :
+  - Seule la dernière submap associée à chaque boucle de traitement reçoit un prior, et la fusion de cartes (`GlobalMapping::load()`) supprime tous les priors GNSS, y compris ceux de rotation (inchangé depuis la 1.2.0).
+  - Un GNSS faible reçoit `weak_inf_scale` quelle que soit sa covariance : un GNSS dégradé obtient un prior bien plus serré que sa covariance et tire la carte vers ses positions. Sur les 300 premières secondes du bag Vélizy du 2026-10-07 (config Milla), les 70 priors faibles viennent de sigmas GNSS de 6 à 74 cm (médiane 34 cm) mais reçoivent tous 5,8 cm. Réduisez `weak_inf_scale` pour les relâcher (ex. `[25, 25, 25]` donne 20 cm), en restant sous les seuils faibles (x/y < `5e2`, z < `1e3`).
+  - Les seuils "faible" (prior) et "fiable" (initialisation de `T_mgrs_world`) sont codés en dur séparément : un GNSS de sigma 3,6-5,1 cm (xy) ou 4-5,7 cm (z) reçoit un prior normal mais ne sert pas à l'initialisation, qui peut être retardée.
+  - `invalid condition in GNSS global module!!` est aussi loggé dans un cas valide, quand l'échantillon GNSS juste après la submap est le plus récent (ex. après une coupure). L'association est reportée et la submap peut ne recevoir aucun prior.
+  - Une covariance de position NaN donnerait une information NaN (non observé dans les données enregistrées), et `submap->T_world_origin` est lu par le thread GNSS sans synchronisation.
+- Les limitations du déchargement GPU listées en 1.2.0 sont inchangées.
+
+### Mise à jour depuis 1.2.0
+
+```bash
+cd glim_ws
+vcs import . < glim.repos     # src/ et ../gtsam, ../iridescence, ../gtsam_points
+# Librairies : à recompiler seulement si elles ne sont pas à ces commits
+#   gtsam 41c8e54, iridescence de083e2, gtsam_points 17e948d
+git -C ../gtsam_points rev-parse --short HEAD
+source /opt/ros/humble/setup.bash
+colcon build --cmake-args \
+  -DGTSAM_DIR=/usr/local/lib/cmake/GTSAM \
+  -DCMAKE_PREFIX_PATH="/usr/local;/opt/ros/humble" \
+  -DBUILD_WITH_CUDA=ON \
+  -DBUILD_WITH_VIEWER=ON \
+  -DBUILD_WITH_MARCH_NATIVE=OFF
+```
+
+Avec un `config_gnss_global.json` personnalisé, ajoutez `weak_inf_scale` et les paramètres roll/pitch : sans eux, `weak_inf_scale` vaut `[1e3, 1e3, 3e3]` et le prior roll/pitch est désactivé.
+
 ## [1.2.0] - 2026-10-05
 
 ### Versions des dépôts (`glim.repos`)

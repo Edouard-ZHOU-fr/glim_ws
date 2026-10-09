@@ -62,10 +62,17 @@ fi
 
 
 
-# Clone les workspace obligatoire
-git clone https://gitlab.infra.isfm.vpn:4000/milla/mapping/gtsam.git ../gtsam  >/dev/null 2>&1
-git clone https://gitlab.infra.isfm.vpn:4000/milla/mapping/iridescence.git --recursive ../iridescence  >/dev/null 2>&1
-git clone https://gitlab.infra.isfm.vpn:4000/milla/mapping/gtsam_points.git ../gtsam_points  >/dev/null 2>&1
+# Clone les workspace obligatoire (librairies dans ../, packages ROS dans src/)
+vcs import . < glim.repos >/dev/null 2>&1
+status1=$?
+git -C ../iridescence submodule update --init --recursive >/dev/null 2>&1
+status2=$?
+if [ $status1 != 0 ] || [ $status2 != 0 ] ; then
+    log_error "Aborting failed clone des depots de glim.repos" 0
+    exit 1
+else
+    log_milla "Depots de glim.repos clones succesfully" 0
+fi
 cd ../
 
 # build les workspaces
@@ -125,7 +132,6 @@ sudo ldconfig  >/dev/null 2>&1
 
 # build ros2 workspace
 cd glim_ws
-vcs import . < glim.repos >/dev/null 2>&1
 source /opt/ros/humble/setup.bash
 colcon build --cmake-args \
   -DGTSAM_DIR=/usr/local/lib/cmake/GTSAM \

@@ -15,10 +15,25 @@ repositories:
   src/glim_ext:
     type: git
     url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/glim_ext.git
-    version: 1.0.0
+    version: 1.3.1
 
   src/convert_gnss:
     type: git
     url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/convert_gnss.git
+    version: 1.0.1
+
+  # Libraries (cloned next to glim_ws, built and installed by milla_glim_installer.bash)
+  ../gtsam:
+    type: git
+    url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/gtsam.git
     version: 1.0.0
 
+  ../iridescence:
+    type: git
+    url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/iridescence.git
+    version: 1.0.0
+
+  ../gtsam_points:
+    type: git
+    url: https://gitlab.infra.isfm.vpn:4000/milla/mapping/gtsam_points.git
+    version: 1.0.0
