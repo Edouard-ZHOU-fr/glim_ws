@@ -1,5 +1,83 @@
 # Changelog
 
+## [1.4.0] - 2026-10-20
+
+### Versions des dépôts (`glim.repos`)
+
+| Dépôt | 1.3.0 | 1.4.0 |
+|---|---|---|
+| `src/glim` | `1.0.0` (`409eeec`) | `1.1.0` (`5e8c91c`) |
+| `src/glim_ros2` | `1.0.0` (`19e2c56`) | `1.0.0` (inchangé) |
+| `src/glim_ext` | `1.3.1` (`672c63e`) | `1.4.0` (`f24a401`) |
+| `src/convert_gnss` | `1.0.1` (`b7f1992`) | `1.0.1` (inchangé) |
+| `../gtsam` | `1.0.0` (`41c8e54`) | `1.0.0` (inchangé) |
+| `../iridescence` | `1.0.0` (`de083e2`) | `1.0.0` (inchangé) |
+| `../gtsam_points` | `1.0.0` (`17e948d`) | `1.0.0` (inchangé) |
+
+Les librairies ne changent pas : inutile de les recompiler.
+
+### Ajouté
+
+- **glim : estimation du biais IMU quand le véhicule est à l'arrêt**
+  - À l'initialisation (`initialization_mode: "LOOSE"`, `use_static_imu_bias: true`) : si le véhicule est immobile pendant la fenêtre d'initialisation (`initialization_window_size`, 3 s), le prior du biais IMU est centré sur le biais estimé avec une précision de `1e6` (sigma 1e-3), au lieu d'un prior nul et lâche (précision `10`). Sinon, le comportement précédent est conservé.
+  - Pendant l'odométrie (`static_imu_bias_update`) : chaque fois que le véhicule reste immobile pendant `static_imu_bias_update_window` (3 s), un prior de biais est ajouté sur la frame courante, au plus une fois par fenêtre.
+    - `"NONE"` : désactivé.
+    - `"OBSERVABLE"` : contraint le biais gyro et la composante du biais acc selon la gravité (biais acc horizontal laissé libre).
+    - `"FULL"` : contraint aussi le biais acc horizontal à zéro, pour que le roll/pitch soit corrigé par la gravité (suppose un biais horizontal négligeable).
+  - Estimation : biais gyro = vitesse angulaire moyenne ; biais acc = accélération moyenne - g × sa direction. Seule la composante selon la gravité est observable à l'arrêt, la composante horizontale vaut zéro. Les échantillons à plus de 2 sigma de la moyenne sont rejetés.
+  - Détection de l'arrêt (seuils communs à l'initialisation et à l'odométrie) : écart-type max par axe < `static_acc_std_thresh` (0,1 m/s²) et < `static_gyro_std_thresh` (0,01 rad/s), mouvement de l'odométrie LiDAR dans la fenêtre < `static_max_translation` (0,1 m) et < `static_max_rotation` (0,003 rad). Les données IMU doivent couvrir au moins 90 % de la fenêtre (10 échantillons minimum).
+  - Logs :
+    - à l'initialisation : `sensor is static (...)` puis `static IMU bias=...`, sinon `sensor is not static (...), use the default IMU bias prior` ou `IMU data do not cover the initialization window (...)` ;
+    - pendant l'odométrie : `static IMU bias update at ... (mode=...)` puis `static IMU bias=... current=...`.
+  - Documentation dans les commentaires de `config_odometry_gpu.json`.
+
+### Modifié
+
+- **glim**
+  - `config_odometry_gpu.json` (config utilisée) : ajout de `use_static_imu_bias: true`, `static_imu_bias_update: "OBSERVABLE"`, `static_imu_bias_update_window: 3.0` et des seuils `static_acc_std_thresh: 0.1`, `static_gyro_std_thresh: 0.01`, `static_max_translation: 0.1`, `static_max_rotation: 0.003`.
+  - `config_odometry_cpu.json` : mêmes paramètres, mais avec `static_imu_bias_update: "NONE"` (biais à l'arrêt seulement à l'initialisation).
+- **glim_ext** (avec `dynamic_scale: true`) : une variance d'angle nulle ou négative est traitée comme « non fournie », même après l'interpolation au timestamp de la submap. Le prior de rotation prend alors le sigma par défaut (`yaw_prior_sigma_deg`, `roll_pitch_prior_sigma_deg`). Avant, l'interpolation avec une variance positive donnait une petite variance, donc le sigma minimal (`*_min_sigma_deg`).
+- **glim_ws** : `glim.repos` passe `glim` à `1.1.0` et `glim_ext` à `1.4.0`.
+
+### Corrigé
+
+- **glim_ext**
+  - **Covariance de position nulle** (ex. EKF mal initialisé) : elle donnait l'information maximale (`1.3e6`), donc le prior de translation le plus fort, et la position pouvait servir à estimer `T_mgrs_world`. Une variance nulle, négative ou NaN fait maintenant rejeter la position : log `Gnss abodonne: Zero covariance: (var=...)`, croix rouge dans le viewer, et la position n'est pas utilisée pour `T_mgrs_world`. Cela corrige aussi l'information NaN d'une covariance NaN (limitation connue de la 1.3.0).
+  - **Accès concurrent aux submaps** (limitation connue de la 1.3.0) : le thread GNSS lisait `submap->frames` et `submap->T_world_origin` pendant que le global mapping les modifiait (remplacement des frames par `drop_frame_points()`, mise à jour des poses après chaque optimisation). Cela pouvait faire planter le processus ou donner des poses incohérentes. Les timestamps et `T_origin_imu` sont maintenant copiés dans `on_insert_submap()`, et les poses sont mises à jour sous mutex dans `on_update_submaps()`. Ce callback est désormais enregistré même avec `isShow: false`.
+  - **Repère du cap et du roll/pitch** : l'estimation du yaw de `T_mgrs_world`, le log de cohérence roll/pitch et les angles non contraints du prior de rotation utilisaient la pose odométrique de la frame origine. Or les positions et `X(id)` sont dans le repère du global mapping, et l'écart entre les deux (la dérive déjà corrigée par le global mapping) biaisait le yaw de `T_mgrs_world`. Ces calculs utilisent maintenant la dernière pose optimisée de la submap.
+  - **Blocage de l'association GNSS** : si le premier timestamp d'une submap était exactement égal au plus ancien timestamp GNSS en attente, cette submap n'était ni supprimée ni associée et bloquait toutes les suivantes, sans plus aucun prior GNSS jusqu'à la fin. Elle est maintenant supprimée.
+
+### Limitations connues
+
+- **Priors GNSS (glim_ext)**
+  - Inchangé depuis la 1.3.0 : une seule submap par boucle de traitement reçoit un prior, et les autres n'en reçoivent jamais (ex. quand le global mapping insère plusieurs submaps d'un coup) ; `GlobalMapping::load()` supprime les priors GNSS ; comportement de `weak_inf_scale` et seuils "faible"/"fiable" codés en dur ; log `invalid condition in GNSS global module!!`.
+  - Le yaw de `T_mgrs_world` est estimé avec toutes les submaps associées, pas seulement celles dont la position est fiable. Comme une variance d'angle nulle prend le sigma par défaut, les messages d'un EKF mal initialisé (orientation identité, covariance nulle) peuvent entrer dans la moyenne du cap.
+  - Les variances x/y du GNSS sont données dans les axes MGRS, mais appliquées sur les axes x/y du repère GLIM, tournés du yaw de `T_mgrs_world` ; le terme croisé `covariance[1]` est ignoré. Cela n'a d'effet que si la covariance xy est anisotrope.
+  - La durée d'une coupure GNSS n'est pas contrôlée : une submap prise pendant une coupure reçoit une position interpolée linéairement entre les deux bords de la coupure.
+- **Biais IMU à l'arrêt (glim)**
+  - La précision du prior (`1e6`) ne dépend ni de l'écart-type mesuré ni du nombre d'échantillons : avec des vibrations (moteur au ralenti), le prior peut être environ 4 à 5 fois trop confiant.
+  - Une rotation lente et constante (< `static_max_rotation` / fenêtre, soit 0,001 rad/s avec les valeurs par défaut) passe la détection et est absorbée dans le biais gyro.
+  - Si `static_imu_bias_update_window` est à moins d'une période de frame de `smoother_lag - 0.1`, la mise à jour n'est jamais déclenchée, et aucun avertissement n'est loggé.
+- **Sauvegarde après crash (glim)** : si le thread d'odométrie s'arrête sur une exception, les frames encore dans la fenêtre du smoother (`smoother_lag`, environ 5 s) ne sont pas transmises au mapping et manquent dans la carte enregistrée.
+- **Déchargement GPU** (désactivé par défaut) : limitations de la 1.2.0 inchangées. De plus, après un OOM, `values.bin` contient pour les submaps déchargées (avec `gpu_offload_freeze_relinearization: true`) leur pose au moment du déchargement, sans les corrections ultérieures (ex. fermeture de boucle).
+- **Installeur** : `milla_glim_installer.bash` crée `build/` sans `mkdir -p`. Après un échec, supprimez `../gtsam/build`, `../iridescence/build` et `../gtsam_points/build` avant de le relancer.
+
+### Mise à jour depuis 1.3.0
+
+```bash
+cd glim_ws
+vcs import . < glim.repos     # glim 1.1.0, glim_ext 1.4.0 (librairies inchangées)
+source /opt/ros/humble/setup.bash
+colcon build --cmake-args \
+  -DGTSAM_DIR=/usr/local/lib/cmake/GTSAM \
+  -DCMAKE_PREFIX_PATH="/usr/local;/opt/ros/humble" \
+  -DBUILD_WITH_CUDA=ON \
+  -DBUILD_WITH_VIEWER=ON \
+  -DBUILD_WITH_MARCH_NATIVE=OFF
+```
+
+Avec un `config_odometry_*.json` personnalisé, ajoutez `use_static_imu_bias`, `static_imu_bias_update`, `static_imu_bias_update_window` et les seuils `static_*` : sans eux, l'estimation du biais à l'arrêt est désactivée (`use_static_imu_bias: false`, `static_imu_bias_update: "NONE"`). `config_gnss_global.json` ne change pas.
+
 ## [1.3.0] - 2026-10-09
 
 ### Versions des dépôts (`glim.repos`)
